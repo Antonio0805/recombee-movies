@@ -1,123 +1,99 @@
-# Laborator 2: Catalog de filme în Recombee
+# Catalog de filme în Recombee — Laboratoarele 2 și 3
 
-Pentru acest laborator am ales să lucrez cu un catalog de filme de pe Kaggle. Am folosit Python și SDK-ul oficial Recombee pentru a înregistra proprietățile filmelor în baza de date.
+Am realizat un catalog de filme folosind Python, un dataset TMDb de pe Kaggle și SDK-ul oficial Recombee. În laboratorul 2 am definit proprietățile, iar în laboratorul 3 am încărcat filmele cu toate valorile lor.
 
-Scopul acestei etape este să pregătesc structura catalogului. Am definit șapte proprietăți și am verificat prin API că fiecare are tipul de date corect. Încărcarea filmelor în Recombee se va face în laboratorul următor.
+**Import verificat pe 29 octombrie 2026:** am trimis 4.803 filme în 49 de cereri Batch. Am citit apoi catalogul prin API și am comparat fiecare ID și toate cele șapte proprietăți cu CSV-ul: 4.803 filme verificate, 33.621 de valori conforme, fără item-uri suplimentare.
 
-## Dataset-ul ales
+## 1. Dataset-ul pe care l-am folosit
 
-Am folosit [Movies Dataset](https://www.kaggle.com/datasets/akshaydattatraykhare/movies-dataset), publicat pe Kaggle de Akshay Dattatray Khare. Datele provin din The Movie Database (TMDb).
+Am continuat cu [Movies Dataset de pe Kaggle](https://www.kaggle.com/datasets/akshaydattatraykhare/movies-dataset), publicat de Akshay Dattatray Khare. Datele provin din The Movie Database (TMDb).
 
 | Detaliu | Valoare |
 | --- | --- |
-| Domeniu | Filme |
+| Domeniu | Filme; un item reprezintă un film |
 | Fișier folosit | [`archive-3/tmdb_5000_movies.csv`](archive-3/tmdb_5000_movies.csv) |
-| Număr de filme | 4.803 |
-| Număr de coloane | 20 |
-| Identificator unic | `id`, identificatorul TMDb al filmului |
+| Volum | 4.803 filme, 20 de coloane |
+| ID unic în CSV | `id` |
+| ID în Recombee | `itemId`, transmis ca text |
 
-Am păstrat fișierul CSV exact cum l-am descărcat: cu toate rândurile, numele originale ale coloanelor și valorile din sursă. Cele 4.803 filme se încadrează în limita de 100 până la 10.000 de item-uri cerută la laborator.
+Cele 4.803 filme se încadrează în intervalul cerut, de 100–10.000 de item-uri. Am păstrat CSV-ul original, fără să elimin rânduri sau să redenumesc coloane. Scriptul validează câmpurile folosite înainte de a face orice cerere API: acestea sunt completate și au valori valide. Celulele goale din coloanele nefolosite nu intră în import.
 
-În folder se află și `tmdb_5000_credits.csv`, care conține informații despre actori și echipele filmelor. L-am păstrat în forma originală, dar pentru această etapă folosesc doar fișierul de filme.
+În arhivă se află și `tmdb_5000_credits.csv`, cu distribuția și echipele filmelor. L-am păstrat, dar importul folosește doar fișierul de filme. Valorile zero din bugete sau încasări rămân exact ca în sursă.
 
-## Proprietățile înregistrate
+## 2. Maparea datelor
 
-Din coloanele existente am ales următoarele șapte proprietăți. Toate au valori completate în dataset.
+Proprietățile sunt aceleași cu cele create în laboratorul 2.
 
-| Proprietate | Tip Recombee | Ce reprezintă | Exemplu pentru Avatar |
+| Coloană CSV | Câmp Recombee | Tip | Exemplu: Avatar |
 | --- | --- | --- | --- |
-| `title` | `string` | Titlul filmului | `Avatar` |
-| `original_language` | `string` | Codul limbii originale | `en` |
-| `budget` | `int` | Bugetul raportat în dataset | `237000000` |
-| `revenue` | `int` | Încasările raportate în dataset | `2787965087` |
-| `popularity` | `double` | Scorul de popularitate | `150.437577` |
-| `vote_average` | `double` | Media voturilor, între 0 și 10 | `7.2` |
-| `vote_count` | `int` | Numărul de voturi | `11800` |
+| `id` | `itemId` nativ | identificator text | `"19995"` |
+| `title` | `title` | `string` | `Avatar` |
+| `original_language` | `original_language` | `string` | `en` |
+| `budget` | `budget` | `int` | `237000000` |
+| `revenue` | `revenue` | `int` | `2787965087` |
+| `popularity` | `popularity` | `double` | `150.437577` |
+| `vote_average` | `vote_average` | `double` | `7.2` |
+| `vote_count` | `vote_count` | `int` | `11800` |
 
-`string` înseamnă text, `int` este un număr întreg, iar `double` este un număr care poate avea zecimale.
+`string` înseamnă text, `int` număr întreg, iar `double` număr cu zecimale. Convertesc explicit valorile din CSV în aceste tipuri Python înainte de trimitere.
 
-Am păstrat coloana `id` în CSV. La importul filmelor voi folosi valoarea ei ca `itemId`, identificatorul gestionat nativ de Recombee. De exemplu, Avatar are ID-ul `19995`. Conform cerinței laboratorului, nu am înregistrat `id` ca proprietate.
+ID-ul este primul argument al cererii `SetItemValues`. Nu îl adaug în dicționarul de proprietăți și nu creez o proprietate separată numită `id` sau `itemId`.
 
-Celelalte coloane rămân în fișier, inclusiv cele cu celule goale sau liste în format JSON. Am păstrat și valorile zero din `budget` și `revenue`, fără să le înlocuiesc cu estimări.
+## 3. Ce am implementat
 
-## Ce face scriptul
+Am păstrat [`recombee_properties.py`](recombee_properties.py) pentru laboratorul 2 și am adăugat [`recombee_items.py`](recombee_items.py) pentru laboratorul 3. Noul script refolosește schema, validarea CSV-ului și configurația din laboratorul 2.
 
-Am organizat implementarea în fișierul [`recombee_properties.py`](recombee_properties.py). La rulare, scriptul:
+La rularea importului:
 
-1. Citește CSV-ul și verifică numărul de filme, coloanele necesare și unicitatea ID-urilor.
-2. Verifică valorile celor șapte proprietăți și tipurile numerice.
-3. Citește configurația din `.env` și se conectează la Recombee.
-4. Folosește `ListItemProperties` pentru a verifica proprietățile existente.
-5. Creează proprietățile lipsă cu `AddItemProperty`.
-6. Citește din nou schema din Recombee și confirmă numele și tipurile proprietăților.
+1. Citește dataset-ul și verifică numărul de rânduri, ID-urile unice, coloanele necesare și valorile numerice.
+2. Pregătește fiecare film cu `itemId` și cele șapte proprietăți.
+3. Citește configurația locală și verifică prin `ListItemProperties` că schema există și are tipurile corecte.
+4. Construiește cereri `SetItemValues(..., cascade_create=True)` și le grupează în `Batch` de maximum 100.
+5. Verifică răspunsul fiecărei cereri din lot. Un răspuns HTTP 200 pentru Batch poate conține erori individuale.
+6. Citește întregul catalog cu `ListItems`, în pagini de 1.000, până la pagina goală. Compară toate cele șapte proprietăți ale fiecărui film cu valorile din CSV.
+7. Salvează raportul local în `reports/recombee_items.json`. Starea `success` apare numai după verificarea completă.
 
-După confirmare, salvează un raport local în `reports/recombee_properties.json`. Scriptul citește dataset-ul fără să rescrie CSV-ul.
+Dacă paginile încă reflectă actualizarea catalogului, verificarea se poate relua de până la trei ori, cu două secunde între încercări. O diferență de atribut este raportată ca eroare.
 
-Pot rula scriptul de mai multe ori. Dacă proprietățile există deja cu tipul corect, le păstrează. Dacă găsește un tip diferit, se oprește și afișează problema. În cazul unei întreruperi, pot relua comanda pentru a crea proprietățile rămase.
+### De ce folosesc Batch
 
-## Fișierele proiectului
+Pentru 4.803 filme trimit 48 de loturi a câte 100 și un ultim lot cu 3 filme: **49 de cereri HTTP pentru scriere**, în loc de 4.803. Citirea schemei și verificarea de după import sunt apeluri separate.
 
-```text
-lab02-recombee-movies/
-├── archive-3/
-│   ├── tmdb_5000_movies.csv      # Catalogul folosit
-│   └── tmdb_5000_credits.csv     # Date suplimentare din arhiva originală
-├── tests/
-│   └── test_recombee_properties.py
-├── recombee_properties.py       # Scriptul pentru laborator
-├── requirements.txt             # Bibliotecile necesare
-├── .env.example                 # Model pentru configurația locală
-├── .gitignore
-├── .gitattributes
-└── README.md
+Codul esențial este:
+
+```python
+requests = [
+    SetItemValues(item["itemId"], item["values"], cascade_create=True)
+    for item in chunk
+]
+response = client.send(Batch(requests))
 ```
 
-Fișierul `.env` și folderul `reports` sunt locale și sunt excluse din Git. Modelul `.env.example` este inclus în repository.
+`cascade_create=True` creează filmul dacă ID-ul nu există. Dacă reiau importul, același ID este actualizat, fără să apară duplicate. Scriptul nu șterge filme sau proprietăți.
 
-## Instalare și configurare
+## 4. Pregătirea mediului
 
-Am folosit bibliotecile `pandas`, `recombee-api-client` și `python-dotenv`. Versiunile sunt trecute în `requirements.txt`. Recomand Python 3.11 sau mai nou; am verificat proiectul și pe Python 3.9.
-
-### 1. Descărcarea proiectului
+Repository-ul continuă proiectul de la laboratorul 2 și păstrează același nume pe GitHub.
 
 ```bash
 git clone https://github.com/Antonio0805/lab02-recombee-movies.git
 cd lab02-recombee-movies
-```
-
-### 2. Pregătirea mediului Python
-
-Pe macOS sau Linux:
-
-```bash
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
-Pe Windows, în PowerShell:
+Dacă am deja proiectul clonat, folosesc `git pull --ff-only` în acel folder pentru a primi noul script.
 
-```powershell
-py -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-```
+Pe Windows folosesc `py -m venv .venv`, apoi `.\.venv\Scripts\Activate.ps1`. Dependențele sunt deja enumerate în `requirements.txt`: `recombee-api-client`, `pandas` și `python-dotenv`. Recomand Python 3.11 sau mai nou; verificările acestei versiuni au rulat cu Python 3.9.6 și SDK 6.3.1.
 
-Dataset-ul este deja în repository, deci nu trebuie descărcat din nou și nu este nevoie de `kagglehub` pentru rulare.
+### Configurația Recombee
 
-### 3. Conectarea la Recombee
-
-Am creat un cont [Recombee](https://www.recombee.com/) și am folosit baza de dezvoltare, cu regiunea Europa (`eu-west`). Datele de conectare se găsesc în [Admin UI](https://admin.recombee.com/), la **Settings → API Logins**.
-
-La prima configurare, copiez `.env.example` într-un fișier numit `.env`:
+Păstrez fișierul `.env` configurat la laboratorul 2. Pentru o instalare nouă copiez modelul și completez valorile din **Recombee Admin UI → Settings → API Logins**:
 
 ```bash
 cp .env.example .env
 ```
-
-Pe Windows folosesc `Copy-Item .env.example .env`. Dacă fișierul `.env` este deja configurat, îl păstrez.
-
-În `.env` completez valorile din contul propriu:
 
 ```dotenv
 RECOMBEE_DATABASE_ID=completeaza_database_id
@@ -125,78 +101,108 @@ RECOMBEE_PRIVATE_TOKEN=completeaza_private_token
 RECOMBEE_REGION=eu-west
 ```
 
-Folosesc tokenul privat pentru a putea crea proprietățile. Fișierul `.env` este exclus prin `.gitignore`, astfel că tokenul rămâne doar pe calculatorul meu. Variabilele de mediu deja setate în terminal au prioritate față de valorile din fișier.
+Folosesc baza de dezvoltare și regiunea ei reală. Tokenul privat rămâne în `.env`, care este exclus din Git. Variabilele deja setate în mediu au prioritate față de fișier.
 
-## Rularea proiectului
+## 5. Rularea pas cu pas
 
-Rulez comenzile din folderul proiectului, cu mediul virtual activat.
+Rulez comenzile din folderul proiectului, cu mediul virtual activ.
 
-### Verificarea dataset-ului
-
-```bash
-python recombee_properties.py --dry-run
-```
-
-Această comandă verifică datele local și afișează primele trei filme. Funcționează fără cont sau token Recombee. Rezultatul începe cu:
-
-```text
-Dataset valid: 4803 filme, ID-uri unice, 7 proprietăți.
-```
-
-### Înregistrarea proprietăților în Recombee
+**Pasul 1 — Verific datele local:**
 
 ```bash
-python recombee_properties.py
+python recombee_items.py --dry-run
 ```
 
-La finalul unei rulări reușite apare mesajul:
+Această comandă nu cere token și nu face apeluri API. Afișează numărul de filme, primele rânduri, maparea pentru Avatar și planul de 49 de loturi.
 
-```text
-Confirmat prin API: toate cele 7 proprietăți au tipurile corecte.
-```
-
-### Verificarea proprietăților existente
+**Pasul 2 — Verific proprietățile existente:**
 
 ```bash
 python recombee_properties.py --verify-only
 ```
 
-Folosesc această comandă pentru a verifica schema prin API, fără să creez proprietăți. Pot vedea aceleași proprietăți și în Admin UI, la **Items → Manage properties**.
+Dacă pornesc cu o bază nouă, creez mai întâi schema folosind `python recombee_properties.py`.
 
-Dacă fișierul CSV se află în alt folder, pot indica locația lui prin `--dataset CALE_CSV`.
+**Pasul 3 — Încarc filmele:**
 
-## Rezultatele obținute
+```bash
+python recombee_items.py
+```
 
-Am verificat integrarea pe 22 octombrie 2026. Cele șapte proprietăți există în Recombee și au tipurile din tabel. Am verificat și în Admin UI lista proprietăților.
+La sfârșitul unui import reușit apar mesajele:
 
-Am rulat cele 12 teste locale, iar toate au trecut:
+```text
+Lot 49: 3 filme confirmate; progres 4803/4803.
+Verificare API reușită: 4803 filme, toate cele 7 proprietăți coincid cu CSV-ul.
+Raport salvat: reports/recombee_items.json
+```
+
+**Pasul 4 — Pot repeta numai verificarea, fără scriere:**
+
+```bash
+python recombee_items.py --verify-only
+```
+
+Pentru un CSV aflat în alt folder pot folosi `--dataset CALE_CSV`. Schema celor șapte câmpuri trebuie să rămână aceeași.
+
+## 6. Verificarea în Recombee Admin UI
+
+În [Admin UI](https://admin.recombee.com/) selectez baza **Development**, apoi **Items**. Verific numărul de item-uri și faptul că rândurile au valori completate. Pentru un exemplu concret, caut `19995` și verific filmul Avatar cu valorile din tabelul de mai sus. Proprietățile pot fi văzute și din **Manage properties**.
+
+Am verificat și vizual pagina **Items** pe 29 octombrie 2026: afișează **4.803 item-uri**, cu ID-urile și cele șapte proprietăți completate în tabel.
+
+Accesul profesorului, configurat la laboratorul 2 cu dreptul **Edit** pe baza folosită, se păstrează.
+
+## 7. Teste și rezultate
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-Testele verifică validarea datelor, păstrarea fișierelor originale și comportamentul scriptului cu un API simulat. Separat, am rulat verificarea pe baza reală Recombee.
+Toate cele **22 de teste locale** trec: 12 pentru laboratorul 2 și 10 pentru laboratorul 3. Noile verificări acoperă maparea ID-ului și a tipurilor, toate cele 49 de loturi, ultimul lot de 3, erorile individuale, răspunsurile incomplete, citirea mai multor pagini, valorile diferite, filmele lipsă, item-urile suplimentare și reluarea limitată a verificării.
 
-Am configurat accesul profesorului cu dreptul **Edit** pe baza folosită la laborator. Această permisiune îi permite să verifice integrarea și să acceseze cheile de test, conform cerinței.
+Separat de testele cu API simulat, am confirmat prin API-ul real toate cele 4.803 filme și cele 33.621 de valori ale proprietăților pe 29 octombrie 2026.
 
-Catalogul afișează momentan **0 item-uri**. Pentru laboratorul 2 am creat schema; importul celor 4.803 filme urmează în laboratorul următor.
+Fișierele `.env`, mediul virtual și rapoartele locale sunt excluse din Git. Raportul nu conține tokenul privat. În modul `--verify-only`, `batches_sent` este 0 deoarece acea rulare doar citește catalogul.
 
-## Probleme care pot apărea la rulare
+## 8. Structura proiectului
+
+```text
+lab02-recombee-movies/
+├── archive-3/
+│   ├── tmdb_5000_movies.csv
+│   └── tmdb_5000_credits.csv
+├── tests/
+│   ├── test_recombee_properties.py
+│   └── test_recombee_items.py
+├── recombee_properties.py
+├── recombee_items.py
+├── requirements.txt
+├── .env.example
+├── .gitignore
+├── .gitattributes
+└── README.md
+```
+
+## 9. Probleme care pot apărea
 
 | Situație | Ce verific |
 | --- | --- |
-| `ModuleNotFoundError` | Activez mediul virtual și instalez pachetele din `requirements.txt`. |
-| Mesajul cere o variabilă `RECOMBEE_...` | Completez și salvez `.env`. |
-| Eroare HTTP 401 sau 403 | Verific Database ID, tokenul privat, regiunea și accesul de scriere. |
-| O proprietate are alt tip | Verific baza selectată și proprietatea indicată în mesaj. |
-| Fișierul CSV nu este găsit | Verific folderul `archive-3` sau folosesc opțiunea `--dataset`. |
-| `NotOpenSSLWarning` pe macOS | Folosesc Python 3.11+ instalat separat și recreez mediul virtual. |
+| `ModuleNotFoundError` | Activez mediul virtual și instalez `requirements.txt`. |
+| Lipsesc variabile `RECOMBEE_...` | Completez configurația locală `.env`. |
+| HTTP 401 / 403 | Verific tokenul privat, baza, regiunea și permisiunile. |
+| Lipsește o proprietate / tip diferit | Verific schema de la laboratorul 2 înainte de import. |
+| Un lot conține erori | Verific ID-urile indicate; pot relua importul după corectare. |
+| Catalogul încă se actualizează | Aștept puțin și rulez `--verify-only`. |
+| `NotOpenSSLWarning` pe macOS | Pot folosi Python 3.11+ cu OpenSSL și recrea mediul virtual. |
 
 ## Surse
 
-- [Cerințele laboratorului 2](https://github.com/GG-Academy/Recommender-Systems/tree/main/lab02)
+- [Cerințele laboratorului 3](https://github.com/GG-Academy/Recommender-Systems/tree/main/lab03/ro)
+- [Scriptul de pornire al laboratorului](https://github.com/GG-Academy/Recommender-Systems/blob/main/lab03/recombee_items.py)
 - [Movies Dataset pe Kaggle](https://www.kaggle.com/datasets/akshaydattatraykhare/movies-dataset)
 - [SDK-ul Python Recombee](https://docs.recombee.com/python_client)
-- [Documentația API pentru proprietăți](https://docs.recombee.com/api/item-properties)
+- [API Recombee](https://docs.recombee.com/api)
+- [Listarea item-urilor](https://docs.recombee.com/api/items)
 
-Pagina Kaggle indică licența "Other (specified in description)". Conform descrierii autorului, dataset-ul folosește API-ul TMDb și nu este aprobat sau certificat de TMDb.
+Pagina Kaggle indică licența „Other (specified in description)”. Conform descrierii autorului, dataset-ul folosește API-ul TMDb și nu este aprobat sau certificat de TMDb.
